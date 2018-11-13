@@ -3,7 +3,7 @@
 top_articles = '''
   select title, count(*) as num
     from articles, log
-    where position(slug in path) > 0
+    where path like '%' || slug
     group by articles.id
     order by num desc
     limit 3 '''
