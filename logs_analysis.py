@@ -16,6 +16,16 @@ def get_data(query):
     return data
 
 
+class Report():
+    def __init__(self, query, title, decorator):
+        self.title = title
+        self.decorator = decorator
+        self.query = query
+    def make_report():
+        for line in get_data(self.query):
+            yield line
+
+
 def top_articles():
     query = '''
         select title, count(*) as num
