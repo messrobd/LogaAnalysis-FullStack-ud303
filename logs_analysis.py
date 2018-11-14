@@ -17,11 +17,13 @@ class Report():
             self.query = query
 
     def make_report(self):
+        '''Submit query and yield lines to print methods'''
         for line in get_data(self.query):
             yield line
 
 
 def get_data(query):
+    '''Connect to database and return query data to caller'''
     connection = psycopg2.connect(dbname=DBName)
     cursor = connection.cursor()
     cursor.execute(query)
@@ -31,8 +33,9 @@ def get_data(query):
 
 
 def print_report(report, file_out):
+    '''Call report and print to file or console'''
     if file_out:
-        # write file to cwd:
+        # Write file to cwd:
         report_file = open(report.title.replace(' ', '_') + '.txt', 'w')
         report_file.write(report.title + '\n')
         for line in report.make_report():
@@ -44,6 +47,7 @@ def print_report(report, file_out):
             print(report.formatter(line))
 
 
+# Define reoprts:
 top_arts_query = '''
     select title, count(*) as num
         from articles, log
@@ -54,6 +58,8 @@ top_arts_query = '''
 
 
 def top_arts_formatter(line):
+    '''Takes a raw line from the db query output and retuns a line formatted
+    for the articles report'''
     line_template = '"%s" - %s views'
     return line_template % line
 
@@ -71,6 +77,8 @@ top_auths_query = '''
 
 
 def top_auths_formatter(line):
+    '''Takes a raw line from the db query output and retuns a line formatted
+    for the authors report'''
     line_template = '%s - %s views'
     return line_template % line
 
@@ -98,6 +106,8 @@ bad_day_tol = 0.01
 
 
 def bad_days_formatter(line):
+    '''Takes a raw line from the db query output and retuns a line formatted
+    for the bad days report'''
     line_template = '%s - %s%% errors'
     (timestamptz, error_frac) = line
     date = timestamptz.strftime('%B %d, %Y')
@@ -115,7 +125,14 @@ reports = {
 }
 
 
+# Main program:
 def main(options, file_out=False):
+    '''
+    1. Interpret command line. The user may enter the -f option to write to
+    file instead of console
+    2. Show report options. Give the user multiple attempts to provide a valid
+    input
+    3. Print the selected report '''
     try:
         opts, args = getopt.getopt(options, 'f')
     except getopt.GetoptError:
