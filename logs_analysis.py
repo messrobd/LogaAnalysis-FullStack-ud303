@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import psycopg2
+import psycopg2, sys, getopt, os
 
 DBName = 'news'
 
@@ -53,13 +53,28 @@ def bad_days(tolerance):
         error_percent = str(round(error_frac * 100, 2)) + '%'
         yield (date, error_percent)
 
-def print_to_console(report_title, report_decorator, report, report_args):
-    print(report_title)
+def print_report(report_title, report_decorator, report, report_args, file_out):
     report_line = '%s - %s %s'
-    for (col1, col2) in report(*report_args):
-        print(report_line % (col1, col2, report_decorator))
+    if file_out:
+        # write file to cwd:
+        report_file = open(report.__name__ + '.txt', 'w')
+        report_file.write(report_title + '\n')
+        for (col1, col2) in report(*report_args):
+            report_file.write(report_line % (col1, col2, report_decorator) + '\n')
+        report_file.close()
+    else:
+        print(report_title)
+        for (col1, col2) in report(*report_args):
+            print(report_line % (col1, col2, report_decorator))
 
-def main():
+def main(options, file_out=False):
+    try:
+        opts, args = getopt.getopt(options, 'f')
+    except getopt.GetoptError:
+        print('usage: logs_analysis.py [-f]')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-f': file_out = True
     bad_day_tolerance = 0.01
     reports = {
       1: ('Top 3 articles', 'views', top_articles, []),
@@ -79,7 +94,7 @@ def main():
         else:
             valid_report = True
     (title, decorator, method, method_args) = report
-    print_to_console(title, decorator, method, method_args)
+    print_report(title, decorator, method, method_args, file_out)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
