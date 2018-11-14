@@ -15,6 +15,7 @@ class Report():
             self.query = query % query_args
         else:
             self.query = query
+
     def make_report(self):
         for line in get_data(self.query):
             yield line
@@ -80,17 +81,17 @@ top_authors = Report('Top authors', top_auths_formatter, top_auths_query)
 bad_days_query = '''
 select *
     from
-    (select error_count_daily.date, (cast(errors as real) / cast(requests as real)) as error_frac
+    (select err_n_daily.date, (cast(errs as real) / cast(rqs as real)) as err_f
         from
-        (select date_trunc('day', time) as date, count(*) as requests
+        (select date_trunc('day', time) as date, count(*) as rqs
             from log
-            group by date) as request_count_daily,
-        (select date_trunc('day', time) as date, count(*) as errors
+            group by date) as rq_n_daily,
+        (select date_trunc('day', time) as date, count(*) as errs
             from log
             where not status = '200 OK'
-            group by date) as error_count_daily
-        where error_count_daily.date = request_count_daily.date) as error_frac_daily
-    where error_frac > %s; '''
+            group by date) as err_n_daily
+        where err_n_daily.date = rq_n_daily.date) as err_f_daily
+    where err_f > %s; '''
 
 
 bad_day_tol = 0.01
