@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-import psycopg2, sys, getopt, os
+import psycopg2
+import sys
+import getopt
+import os
 
 DBName = 'news'
+
 
 def get_data(query):
     connection = psycopg2.connect(dbname=DBName)
@@ -10,6 +14,7 @@ def get_data(query):
     data = cursor.fetchall()
     connection.close()
     return data
+
 
 def top_articles():
     query = '''
@@ -22,6 +27,7 @@ def top_articles():
     for line in get_data(query):
         yield line
 
+
 def top_authors():
     query = '''
         select authors.name, count(*) as num
@@ -32,6 +38,7 @@ def top_authors():
             order by num desc; '''
     for line in get_data(query):
         yield line
+
 
 def bad_days(tolerance):
     query = '''
@@ -53,6 +60,7 @@ def bad_days(tolerance):
         error_percent = str(round(error_frac * 100, 2)) + '%'
         yield (date, error_percent)
 
+
 def print_report(report_title, report_decorator, report, report_args, file_out):
     report_line = '%s - %s %s'
     if file_out:
@@ -67,6 +75,7 @@ def print_report(report_title, report_decorator, report, report_args, file_out):
         for (col1, col2) in report(*report_args):
             print(report_line % (col1, col2, report_decorator))
 
+
 def main(options, file_out=False):
     try:
         opts, args = getopt.getopt(options, 'f')
@@ -74,7 +83,8 @@ def main(options, file_out=False):
         print('usage: logs_analysis.py [-f]')
         sys.exit(2)
     for opt, arg in opts:
-        if opt == '-f': file_out = True
+        if opt == '-f':
+            file_out = True
     bad_day_tolerance = 0.01
     reports = {
       1: ('Top 3 articles', 'views', top_articles, []),
@@ -85,16 +95,17 @@ def main(options, file_out=False):
     for report in reports:
         print('%s - %s' % (report, reports[report][0]))
     valid_report = False
-    while valid_report == False:
+    while not valid_report:
         choice = input()
         try:
             report = reports[int(choice)]
-        except:
+        except KeyError:
             print('Please pick a number 1 - 3')
         else:
             valid_report = True
     (title, decorator, method, method_args) = report
     print_report(title, decorator, method, method_args, file_out)
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
