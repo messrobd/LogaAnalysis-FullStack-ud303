@@ -7,6 +7,19 @@ import os
 DBName = 'news'
 
 
+class Report():
+    def __init__(self, title, formatter, query, query_args=None):
+        self.title = title
+        self.formatter = formatter
+        if query_args:
+            self.query = query % query_args
+        else:
+            self.query = query
+    def make_report(self):
+        for line in get_data(self.query):
+            yield line
+
+
 def get_data(query):
     connection = psycopg2.connect(dbname=DBName)
     cursor = connection.cursor()
@@ -16,80 +29,10 @@ def get_data(query):
     return data
 
 
-class Report():
-    def __init__(self, query, title, formatter):
-        self.title = title
-        self.formatter = formatter
-        self.query = query
-    def make_report(self):
-        for line in get_data(self.query):
-            yield line
-
-
-def top_articles():
-    query = '''
-        select title, count(*) as num
-            from articles, log
-            where path like '%' || slug
-            group by articles.id
-            order by num desc
-            limit 3; '''
-    for line in get_data(query):
-        yield line
-
-
-def top_authors():
-    query = '''
-        select authors.name, count(*) as num
-            from articles, log, authors
-            where path like '%' || slug
-                and author = authors.id
-            group by authors.name
-            order by num desc; '''
-    for line in get_data(query):
-        yield line
-
-
-def bad_days(tolerance):
-    query = '''
-        select *
-            from
-            (select error_count_daily.date, (cast(errors as real) / cast(requests as real)) as error_frac
-                from
-                (select date_trunc('day', time) as date, count(*) as requests
-                    from log
-                    group by date) as request_count_daily,
-                (select date_trunc('day', time) as date, count(*) as errors
-                    from log
-                    where not status = '200 OK'
-                    group by date) as error_count_daily
-                where error_count_daily.date = request_count_daily.date) as error_frac_daily
-            where error_frac > %s; '''
-    for (timestamptz, error_frac) in get_data(query % tolerance):
-        date = timestamptz.strftime('%B %d, %Y')
-        error_percent = str(round(error_frac * 100, 2)) + '%'
-        yield (date, error_percent)
-
-
-def print_report_old(report_title, report_decorator, report, report_args, file_out):
-    report_line = '%s - %s %s'
-    if file_out:
-        # write file to cwd:
-        report_file = open(report.__name__ + '.txt', 'w')
-        report_file.write(report_title + '\n')
-        for (col1, col2) in report(*report_args):
-            report_file.write(report_line % (col1, col2, report_decorator) + '\n')
-        report_file.close()
-    else:
-        print(report_title)
-        for (col1, col2) in report(*report_args):
-            print(report_line % (col1, col2, report_decorator))
-
-
 def print_report(report, file_out):
     if file_out:
         # write file to cwd:
-        report_file = open(report.__name__ + '.txt', 'w')
+        report_file = open(report.title.replace(' ', '_') + '.txt', 'w')
         report_file.write(report.title + '\n')
         for line in report.make_report():
             report_file.write(report.formatter(line) + '\n')
@@ -114,7 +57,8 @@ def top_arts_formatter(line):
     return line_template % line
 
 
-top_articles = Report(top_arts_query, 'Top 3 articles', top_arts_formatter)
+top_articles = Report('Top 3 articles', top_arts_formatter, top_arts_query)
+
 
 top_auths_query = '''
     select authors.name, count(*) as num
@@ -130,41 +74,44 @@ def top_auths_formatter(line):
     return line_template % line
 
 
-top_authors = Report(top_auths_query, 'Top authors', top_auths_formatter)
+top_authors = Report('Top authors', top_auths_formatter, top_auths_query)
+
+
+bad_days_query = '''
+select *
+    from
+    (select error_count_daily.date, (cast(errors as real) / cast(requests as real)) as error_frac
+        from
+        (select date_trunc('day', time) as date, count(*) as requests
+            from log
+            group by date) as request_count_daily,
+        (select date_trunc('day', time) as date, count(*) as errors
+            from log
+            where not status = '200 OK'
+            group by date) as error_count_daily
+        where error_count_daily.date = request_count_daily.date) as error_frac_daily
+    where error_frac > %s; '''
+
+
+bad_day_tol = 0.01
+
+
+def bad_days_formatter(line):
+    line_template = '%s - %s%% errors'
+    (timestamptz, error_frac) = line
+    date = timestamptz.strftime('%B %d, %Y')
+    error_percent = round(error_frac * 100, 2)
+    return line_template % (date, error_percent)
+
+
+bad_days = Report('Bad days', bad_days_formatter, bad_days_query, bad_day_tol)
+
 
 reports = {
     1: top_articles,
-    2: top_authors
+    2: top_authors,
+    3: bad_days
 }
-def main_old(options, file_out=False):
-    try:
-        opts, args = getopt.getopt(options, 'f')
-    except getopt.GetoptError:
-        print('usage: logs_analysis.py [-f]')
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-f':
-            file_out = True
-    bad_day_tolerance = 0.01
-    reports = {
-      1: ('Top 3 articles', 'views', top_articles, []),
-      2: ('Top authors', 'views', top_authors, []),
-      3: ('Bad days', 'errors', bad_days, [bad_day_tolerance])
-    }
-    print('Select a report:')
-    for report in reports:
-        print('%s - %s' % (report, reports[report][0]))
-    valid_report = False
-    while not valid_report:
-        choice = input()
-        try:
-            report = reports[int(choice)]
-        except KeyError:
-            print('Please pick a number 1 - 3')
-        else:
-            valid_report = True
-    (title, decorator, method, method_args) = report
-    print_report(title, decorator, method, method_args, file_out)
 
 
 def main(options, file_out=False):
@@ -184,7 +131,7 @@ def main(options, file_out=False):
         choice = input()
         try:
             report = reports[int(choice)]
-        except KeyError:
+        except (KeyError, ValueError):
             print('Please pick a number 1 - 3')
         else:
             valid_report = True
