@@ -53,12 +53,33 @@ def bad_days(tolerance):
         error_percent = str(round(error_frac * 100, 2)) + '%'
         yield (date, error_percent)
 
-def print_to_console(report, report_args):
-    print(report.__name__)
-    report_line = '%s - %s'
+def print_to_console(report_title, report_decorator, report, report_args):
+    print(report_title)
+    report_line = '%s - %s %s'
     for (col1, col2) in report(*report_args):
-        print(report_line % (col1, col2))
+        print(report_line % (col1, col2, report_decorator))
+
+def main():
+    bad_day_tolerance = 0.01
+    reports = {
+      1: ('Top 3 articles', 'views', top_articles, []),
+      2: ('Top authors', 'views', top_authors, []),
+      3: ('Bad days', 'errors', bad_days, [bad_day_tolerance])
+    }
+    print('Select a report:')
+    for report in reports:
+        print('%s - %s' % (report, reports[report][0]))
+    valid_report = False
+    while valid_report == False:
+        choice = input()
+        try:
+            report = reports[int(choice)]
+        except:
+            print('Please pick a number 1 - 3')
+        else:
+            valid_report = True
+    (title, decorator, method, method_args) = report
+    print_to_console(title, decorator, method, method_args)
 
 if __name__ == '__main__':
-    #main()
-    print_to_console(bad_days, [0.01])
+    main()
