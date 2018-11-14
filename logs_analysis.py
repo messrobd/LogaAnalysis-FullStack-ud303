@@ -53,9 +53,12 @@ def bad_days(tolerance):
         error_percent = str(round(error_frac * 100, 2)) + '%'
         yield (date, error_percent)
 
+def print_to_console(report, report_args):
+    print(report.__name__)
+    report_line = '%s - %s'
+    for (col1, col2) in report(*report_args):
+        print(report_line % (col1, col2))
 
 if __name__ == '__main__':
     #main()
-    #[print(item) for item in top_articles()]
-    #[print(item) for item in top_authors()]
-    [print(item) for item in bad_days(0.01)]
+    print_to_console(bad_days, [0.01])
