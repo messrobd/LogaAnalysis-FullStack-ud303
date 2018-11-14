@@ -17,11 +17,11 @@ def get_data(query):
 
 
 class Report():
-    def __init__(self, query, title, decorator):
+    def __init__(self, query, title, formatter):
         self.title = title
-        self.decorator = decorator
+        self.formatter = formatter
         self.query = query
-    def make_report():
+    def make_report(self):
         for line in get_data(self.query):
             yield line
 
@@ -71,7 +71,7 @@ def bad_days(tolerance):
         yield (date, error_percent)
 
 
-def print_report(report_title, report_decorator, report, report_args, file_out):
+def print_report_old(report_title, report_decorator, report, report_args, file_out):
     report_line = '%s - %s %s'
     if file_out:
         # write file to cwd:
@@ -86,7 +86,57 @@ def print_report(report_title, report_decorator, report, report_args, file_out):
             print(report_line % (col1, col2, report_decorator))
 
 
-def main(options, file_out=False):
+def print_report(report, file_out):
+    if file_out:
+        # write file to cwd:
+        report_file = open(report.__name__ + '.txt', 'w')
+        report_file.write(report.title + '\n')
+        for line in report.make_report():
+            report_file.write(report.formatter(line) + '\n')
+        report_file.close()
+    else:
+        print(report.title)
+        for line in report.make_report():
+            print(report.formatter(line))
+
+
+top_arts_query = '''
+    select title, count(*) as num
+        from articles, log
+        where path like '%' || slug
+        group by articles.id
+        order by num desc
+        limit 3; '''
+
+
+def top_arts_formatter(line):
+    line_template = '"%s" - %s views'
+    return line_template % line
+
+
+top_articles = Report(top_arts_query, 'Top 3 articles', top_arts_formatter)
+
+top_auths_query = '''
+    select authors.name, count(*) as num
+        from articles, log, authors
+        where path like '%' || slug
+            and author = authors.id
+        group by authors.name
+        order by num desc; '''
+
+
+def top_auths_formatter(line):
+    line_template = '%s - %s views'
+    return line_template % line
+
+
+top_authors = Report(top_auths_query, 'Top authors', top_auths_formatter)
+
+reports = {
+    1: top_articles,
+    2: top_authors
+}
+def main_old(options, file_out=False):
     try:
         opts, args = getopt.getopt(options, 'f')
     except getopt.GetoptError:
@@ -115,6 +165,30 @@ def main(options, file_out=False):
             valid_report = True
     (title, decorator, method, method_args) = report
     print_report(title, decorator, method, method_args, file_out)
+
+
+def main(options, file_out=False):
+    try:
+        opts, args = getopt.getopt(options, 'f')
+    except getopt.GetoptError:
+        print('usage: logs_analysis.py [-f]')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-f':
+            file_out = True
+    print('Select a report:')
+    for report in reports:
+        print('%s - %s' % (report, reports[report].title))
+    valid_report = False
+    while not valid_report:
+        choice = input()
+        try:
+            report = reports[int(choice)]
+        except KeyError:
+            print('Please pick a number 1 - 3')
+        else:
+            valid_report = True
+    print_report(report, file_out)
 
 
 if __name__ == '__main__':
